@@ -1,0 +1,23 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.572
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "Prediction_ANN", "Prediction_ANN\Prediction_ANN.pyproj", "{64113351-3D1E-4495-B3A6-23FE0133570F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{64113351-3D1E-4495-B3A6-23FE0133570F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{64113351-3D1E-4495-B3A6-23FE0133570F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {5A0955B6-1ECD-4940-B690-2D45A662AE36}
+	EndGlobalSection
+EndGlobal
