@@ -1,6 +1,7 @@
 import pandas as pd
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, LSTM
+from keras.models import model_from_json
 
 url='http://users.du.se/~h16wilwi/gik258/data/ANN-interpolerad.xlsx'
 dataset = pd.read_excel(url, skiprows=3)
@@ -34,12 +35,12 @@ print("Loaded model from disk")
 
 prediction_list = list()
 
-for index in range(len(2)):
+for index in range(2):
         df = dataset_GP.iloc[:, index]
-        #df = pd.concat([df,dataset_W], sort=False)
         df = pd.concat([df, dataset_W], axis=1)
         print('index: {}'.format(index))
 
+        loaded_model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
         prediction = loaded_model.predict_proba(df)
         prediction_list.append(prediction)
 prediction_list
