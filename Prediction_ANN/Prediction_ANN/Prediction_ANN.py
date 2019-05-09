@@ -96,7 +96,7 @@ for index in range(1):
         # make a prediction
         ynew = loaded_model.predict(pred_data)
         prediction_list.append(ynew)
-
+    
 print(prediction_list)
         
 
