@@ -1,10 +1,6 @@
 import pandas as pd
 from matplotlib import pyplot
-
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, LSTM
 from keras.models import model_from_json
-from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.datasets import make_regression
 
@@ -19,13 +15,9 @@ dataset = dataset.drop(['Daggp_mean', 'TYtaDaggp_mean'])
 dataset_GP = dataset.iloc[:1159, :]
 dataset_W = dataset.iloc[1159:, :]
 
-print(dataset_GP)
-dataset_W
-
+# Transponera datasetet
 dataset_W = dataset_W.transpose()
 dataset_GP = dataset_GP.transpose()
-dataset_W
-dataset_GP
 
 # Convert series to supervised learning
 def series_to_supervised(values, n_in=1, n_out=1, dropnan=True):
@@ -66,9 +58,10 @@ print("Loaded model from disk")
 prediction_list = list()
 
 n_days = 3
-n_features = 9
+n_features = 11
 n_obs = n_days * n_features
 
+# For each data point
 for index in range(1):
         df = dataset_GP.iloc[:, index]
         #df = pd.concat([df,dataset_W], sort=False)
@@ -83,13 +76,18 @@ for index in range(1):
         reframed = series_to_supervised(scaled, n_days,1 )
         values = reframed.values
         val = values[:, :n_obs]
-
         val = val.reshape(val.shape[0], n_days, n_features)
-
+        # Compile ANN
         loaded_model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
+
+        # Make prediction
         prediction = loaded_model.predict_proba(val)
         prediction_list.append(prediction)
-prediction_list
+        my_list = map(lambda x: x[0], prediction)
+        series = pd.Series(my_list)
+        series.hist(cumulative=True, density=True, align='mid')
+        pyplot.show()
+
         
 
 
