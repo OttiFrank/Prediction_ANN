@@ -63,25 +63,24 @@ n_days = 3
 n_features = 9
 n_obs = n_days * n_features
 
-for index in range(2):
+for index in range(1):
         df = dataset_GP.iloc[:, index]
         df = pd.concat([df, dataset_W], axis=1)
         print('index: {}'.format(index))
 
-        values = df.values.astype('float32')
+        values = df.astype('float32')
         #normalize features
         scaler = MinMaxScaler(feature_range=(0,1))
         scaled = scaler.fit_transform(values)
         # frame as supervised learning
         reframed = series_to_supervised(scaled, n_days,1 )
+        values = reframed.values
+        val = values[:, :n_obs]
 
-        test = values[:, :]
-        test = test[:, :n_obs]
-
-        test = test.reshape((test.shape[0], n_days, n_features))
+        val = val.reshape(val.shape[0], n_days, n_features)
 
         loaded_model.compile(loss='mse', optimizer='adam', metrics=['accuracy'])
-        prediction = loaded_model.predict_proba(test)
+        prediction = loaded_model.predict_proba(val)
         prediction_list.append(prediction)
 prediction_list
         
