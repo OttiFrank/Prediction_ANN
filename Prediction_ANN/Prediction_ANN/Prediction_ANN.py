@@ -1,8 +1,12 @@
 import pandas as pd
 from matplotlib import pyplot
+from shapely.geometry import Point, Polygon
 from keras.models import model_from_json
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.datasets import make_regression
+import descartes
+import geopandas as gpd
+from shapely.geometry import Point, Polygon
 
 url='http://users.du.se/~h16wilwi/gik258/data/ANN-interpolerad.xlsx'
 dataset = pd.read_excel(url, skiprows=3)
@@ -15,7 +19,7 @@ dataset = dataset.drop(['Daggp_mean', 'TYtaDaggp_mean'])
 dataset_GP = dataset.iloc[:1159, :]
 dataset_W = dataset.iloc[1159:, :]
 
-# Transponera datasetet
+# Transpose dataset
 dataset_W = dataset_W.transpose()
 dataset_GP = dataset_GP.transpose()
 
@@ -85,9 +89,16 @@ for index in range(1):
         prediction_list.append(prediction)
         my_list = map(lambda x: x[0], prediction)
         series = pd.Series(my_list)
-        series.hist(cumulative=True, density=True, align='mid')
+        series.hist(align='mid')
         pyplot.show()
 
+
+
+street = gpd.read_file("shape/exjobb.shp")
+street = gpd.GeoDataFrame(street)
+fig, ax = pyplot.subplots(figsize = (15,15))
+street.plot(ax = ax)
+pyplot.show()
         
 
 
