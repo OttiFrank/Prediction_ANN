@@ -14,7 +14,7 @@ dataset = pd.read_excel(url, skiprows=3)
 dataset = dataset.drop(['pnt_id', 'pnt_lat', 'pnt_lon', 'pnt_demheight', 'pnt_height', 'pnt_quality', 'pnt_linear'], axis=1)
 
 dataset.set_index('index', inplace=True)
-dataset = dataset.drop(['TYta_mean', 'Daggp_mean', 'Lufu_mean', 'TYtaDaggp_mean'])
+dataset = dataset.drop(['Daggp_mean', 'TYtaDaggp_mean'])
 
 dataset_GP = dataset.iloc[:1159, :]
 dataset_W = dataset.iloc[1159:, :]
@@ -52,7 +52,7 @@ def series_to_supervised(values, n_in=1, n_out=1, dropnan=True):
     return agg
 
 n_days = 3
-n_features = 9
+n_features = 11
 n_obs = n_days * n_features
 # load json and create model
 json_file = open('model.json', 'r')
