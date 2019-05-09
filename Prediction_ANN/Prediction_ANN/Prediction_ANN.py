@@ -1,9 +1,33 @@
 import pandas as pd
+from matplotlib import pyplot
+
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, LSTM
 from keras.models import model_from_json
+from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.datasets import make_regression
 
+url='http://users.du.se/~h16wilwi/gik258/data/ANN-interpolerad.xlsx'
+dataset = pd.read_excel(url, skiprows=3)
+
+dataset = dataset.drop(['pnt_id', 'pnt_lat', 'pnt_lon', 'pnt_demheight', 'pnt_height', 'pnt_quality', 'pnt_linear'], axis=1)
+
+dataset.set_index('index', inplace=True)
+dataset = dataset.drop(['TYta_mean', 'Daggp_mean', 'Lufu_mean', 'TYtaDaggp_mean'])
+
+dataset_GP = dataset.iloc[:1159, :]
+dataset_W = dataset.iloc[1159:, :]
+
+print(dataset_GP)
+dataset_W
+
+dataset_W = dataset_W.transpose()
+dataset_GP = dataset_GP.transpose()
+dataset_W
+dataset_GP
+
+# Convert series to supervised learning
 def series_to_supervised(values, n_in=1, n_out=1, dropnan=True):
     n_vars = 1 if type(values) is list else values.shape[1]
     df = pd.DataFrame(values)
@@ -27,27 +51,9 @@ def series_to_supervised(values, n_in=1, n_out=1, dropnan=True):
         agg.dropna(inplace=True)
     return agg
 
-url='http://users.du.se/~h16wilwi/gik258/data/ANN-interpolerad.xlsx'
-dataset = pd.read_excel(url, skiprows=3)
-print(dataset)
-
-dataset = dataset.drop(['pnt_id', 'pnt_lat', 'pnt_lon', 'pnt_demheight', 'pnt_height', 'pnt_quality', 'pnt_linear'], axis=1)
-dataset
-
-dataset.set_index('index', inplace=True)
-dataset = dataset.drop(['TYta_mean', 'Daggp_mean', 'Lufu_mean', 'TYtaDaggp_mean'])
-
-dataset_GP = dataset.iloc[:1159, :]
-dataset_W = dataset.iloc[1159:, :]
-
-print(dataset_GP)
-dataset_W
-
-dataset_W = dataset_W.transpose()
-dataset_GP = dataset_GP.transpose()
-dataset_W
-dataset_GP
-
+n_days = 3
+n_features = 9
+n_obs = n_days * n_features
 # load json and create model
 json_file = open('model.json', 'r')
 loaded_model_json = json_file.read()
@@ -65,6 +71,7 @@ n_obs = n_days * n_features
 
 for index in range(1):
         df = dataset_GP.iloc[:, index]
+        #df = pd.concat([df,dataset_W], sort=False)
         df = pd.concat([df, dataset_W], axis=1)
         print('index: {}'.format(index))
 
