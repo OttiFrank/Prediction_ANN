@@ -1,17 +1,19 @@
 import pandas as pd
 import numpy as np
+import descartes
+import geopandas as gpd
+import contextlib as ctx
 from matplotlib import pyplot
 from shapely.geometry import Point, Polygon
 from keras.models import model_from_json
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.datasets import make_regression
-import descartes
-import geopandas as gpd
 from shapely.geometry import Point, Polygon
-import contextlib as ctx
 from pandas import ExcelWriter
 from pandas import ExcelFile
-
+from pathlib import Path  
+# Extract predicted and true values
+'''
 url='http://users.du.se/~h16wilwi/gik258/data/ANN-interpolerad.xlsx'
 dataset = pd.read_excel(url, skiprows=3)
 
@@ -73,8 +75,8 @@ print("Loaded model from disk")
 pred_list = list()
 # For each data point
 len(dataset_GP)
-for index in range(len(dataset_GP)-1):
-        df = dataset_GP.iloc[index, 782:]
+for index in range(1):
+        df = dataset_GP.iloc[1158, 782:]
         df = pd.concat([df, dataset_W], axis=1)
         print('index: {}'.format(index))
 
@@ -100,6 +102,7 @@ for index in range(len(dataset_GP)-1):
         last_predicted = inv_yhat[-1]
 
         pred_list.append(last_predicted)
+        last_predicted
         # invert scaling for actual
         test_y = test_y.reshape((len(test_y), 1))
         inv_y = np.concatenate((test_y, test_X[:, -(n_features-1):]), axis=1)
@@ -134,11 +137,45 @@ writer = ExcelWriter('predicted.xlsx', engine='xlsxwriter')
 writer.book.use_zip64()
 result.to_excel(writer, sheet_name="Blad1")
 writer.save()
+'''
 
-# my_list = map(lambda x: x[0], prediction)
-# series = pd.Series(my_list)
-# series.hist(align='mid')
-# pyplot.show()
+df = pd.read_excel('predicted.xlsx', index_col=0)
+# Plot points on map
+geometry = [Point(xy) for xy in zip(df["lng"], df["lat"])]
+
+# concat multible shapefiles into one gpd df
+folder = Path("shp")
+
+gdf = pd.concat([
+    gpd.read_file(shp)
+    for shp in folder.glob("*.shp")
+], sort=False).pipe(gpd.GeoDataFrame)
+gdf.to_crs({'proj': 'merc'})
+
+geo_df = gpd.GeoDataFrame(df,
+                          crs= 'merc',
+                          geometry = geometry)
+geo_df.head()
+
+geo_df['true values'][0] % geo_df['predicted values'][0]
+(-0.0281 % -0.027642)
+(-0.0064 % 0.006095)
+# street = gpd.read_file("gis_osm_railways_free_1.shp")
+# street = gpd.GeoDataFrame(street)
+
+xlim = ([12.030, 12.050])
+ylim = ([57.615, 57.640])
+
+fig, ax = pyplot.subplots(figsize = (15,15))
+
+ax.set_xlim(xlim)
+ax.set_ylim(ylim)
+gdf.plot(ax = ax, alpha=0.8, zorder=0)
+geo_df[geo_df['true values'] % geo_df['predicted values'] < -0.004].plot(ax = ax, markersize = 10, color = 'red', marker = "o", label = "Negativ förändring", zorder=5)
+geo_df[geo_df['true values'] % geo_df['predicted values'] >= -0.004].plot(ax = ax, markersize = 10, color = 'yellow', marker = "^", label = "Ingen förändring", zorder=5)
+
+pyplot.legend(prop={'size': 15})
+pyplot.show()
 
 
 # street = gpd.read_file("shape/Exjobb.shp")
