@@ -140,6 +140,7 @@ writer.save()
 '''
 
 df = pd.read_excel('predicted.xlsx', index_col=0)
+df
 # Plot points on map
 geometry = [Point(xy) for xy in zip(df["lng"], df["lat"])]
 
@@ -158,21 +159,47 @@ geo_df = gpd.GeoDataFrame(df,
 geo_df.head()
 
 geo_df['true values'][0] % geo_df['predicted values'][0]
-(-0.0281 % -0.027642)
+-0.0281 <= -0.0004
+(-0.0211 % -0.020993)
 (-0.0064 % 0.006095)
-# street = gpd.read_file("gis_osm_railways_free_1.shp")
-# street = gpd.GeoDataFrame(street)
 
-xlim = ([12.030, 12.050])
+(geo_df['predicted values'] > 0) 
+(geo_df['predicted values'] > -0.02) & (geo_df['predicted values'] < 0)
+(geo_df['predicted values'] > -0.09) & (geo_df['predicted values'] <= -0.02)
+(geo_df['predicted values'] <= -0.021) 
+geo_df['predicted values']
+-4 > -6
+
+xlim = ([12.030, 12.0475])
 ylim = ([57.615, 57.640])
 
-fig, ax = pyplot.subplots(figsize = (15,15))
+fig, (ax1, ax2) = pyplot.subplots(1,2, sharey=True, figsize=(15,15))
 
-ax.set_xlim(xlim)
-ax.set_ylim(ylim)
-gdf.plot(ax = ax, alpha=0.8, zorder=0)
-geo_df[geo_df['true values'] % geo_df['predicted values'] < -0.004].plot(ax = ax, markersize = 10, color = 'red', marker = "o", label = "Negativ förändring", zorder=5)
-geo_df[geo_df['true values'] % geo_df['predicted values'] >= -0.004].plot(ax = ax, markersize = 10, color = 'yellow', marker = "^", label = "Ingen förändring", zorder=5)
+ax1.set_xlim(xlim)
+ax1.set_ylim(ylim)
+ax2.set_xlim(xlim)
+ax2.set_ylim(ylim)
+ax1.set_title('True values', fontsize='x-large')
+ax2.set_title('Predicted values', fontsize='x-large')
+gdf.plot(ax = ax1, alpha=0.8, zorder=0)
+gdf.plot(ax = ax2, alpha=0.8, zorder=0)
+
+dot_size = 1
+
+# Points for ax1
+#geo_df[geo_df['true values'] <= -0.004].plot(ax = ax1, markersize = 2, color = 'red', marker = "o", label = "Negativ förändring", zorder=5)
+geo_df[(geo_df['true values'] > 0)].plot(ax = ax1, markersize = dot_size, color = 'green', marker = "o", label = "Högst höjning", zorder=6)
+geo_df[(geo_df['true values'] > -0.02) & (geo_df['true values'] < 0)].plot(ax = ax1, markersize = dot_size, color = 'yellow', marker = "o", label = "Mindre sättning", zorder=4)
+geo_df[(geo_df['true values'] > -0.09) & (geo_df['true values'] <= -0.02)].plot(ax = ax1, markersize = dot_size, color = 'orange', marker = "o", label = "Medel sättning", zorder=5)
+geo_df[(geo_df['true values'] <= -0.021)].plot(ax = ax1, markersize = dot_size, color = 'red', marker = "^", label = "Högst sättning", zorder=6)
+
+# Points for ax2
+geo_df[(geo_df['predicted values'] > 0)].plot(ax = ax2, markersize = dot_size, color = 'green', marker = "o", label = "Högst höjning", zorder=6)
+geo_df[(geo_df['predicted values'] > -0.02) & (geo_df['predicted values'] < 0)].plot(ax = ax2, markersize = dot_size, color = 'yellow', marker = "o", label = "Mindre sättning", zorder=4)
+geo_df[(geo_df['predicted values'] > -0.09) & (geo_df['predicted values'] <= -0.02)].plot(ax = ax2, markersize = dot_size, color = 'orange', marker = "o", label = "Medel sättning", zorder=5)
+geo_df[(geo_df['predicted values'] <= -0.021)].plot(ax = ax2, markersize = dot_size, color = 'red', marker = "^", label = "Högst sättning", zorder=6)
+#geo_df[geo_df['true values'] % geo_df['predicted values'] < -0.004].plot(ax = ax, markersize = 10, color = 'red', marker = "o", label = "Negativ förändring", zorder=5)
+#geo_df[geo_df['true values'] % geo_df['predicted values'] >= -0.004].plot(ax = ax, markersize = 10, color = 'yellow', marker = "^", label = "Ingen förändring", zorder=5)
 
 pyplot.legend(prop={'size': 15})
 pyplot.show()
