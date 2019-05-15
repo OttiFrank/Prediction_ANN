@@ -14,6 +14,8 @@ from pandas import ExcelFile
 from pathlib import Path  
 # Extract predicted and true values
 
+# Creates a file with the last predicted and true value for all InSAR-measurments
+'''
 url='http://users.du.se/~h16wilwi/gik258/data/ANN-interpolerad.xlsx'
 dataset = pd.read_excel(url, skiprows=3)
 
@@ -26,12 +28,13 @@ dataset.set_index('index', inplace=True)
 dataset = dataset.drop(['Daggp_mean', 'TYtaDaggp_mean'])
 
 # Ground data
-dataset_GP = dataset.iloc[:1159, 927:]
+dataset_GP = dataset.iloc[:1159, :]
+dataset_GP
 # Weather data
-dataset_W = dataset.iloc[1159:, 927:]
+dataset_W = dataset.iloc[1159:, :]
 # Transpose dataset
 dataset_W = dataset_W.transpose()
-dataset_GP = dataset_GP.transpose()
+#dataset_GP = dataset_GP.transpose()
 # Convert series to supervised learning
 def series_to_supervised(values, n_in=1, n_out=1, dropnan=True):
     n_vars = 1 if type(values) is list else values.shape[1]
@@ -71,12 +74,16 @@ print("Loaded model from disk")
 prediction_list = list()
 # from column 927 (points)
 i = 927
+
+len(dataset_GP)
+
+
 # For each data point
-for index  in range(5):        
-        df = dataset_GP.iloc[:, i]
+for index  in range(1159):        
+        df = dataset_GP.iloc[index, 782:]
         df = pd.concat([df, dataset_W], axis=1)
         df
-        print('index: {}'.format(i))
+        print('index: {}'.format(index))
         values = df.astype('float64')
         # normalize features
         scaler = MinMaxScaler(feature_range=(0,1))
@@ -93,14 +100,53 @@ for index  in range(5):
         scores = loaded_model.predict(val)
 
         # Make prediction
-        prediction = loaded_model.predict_proba(val)
-        prediction_list.append(prediction)
+        prediction = loaded_model.predict(val)
+        test_X = val.reshape((val.shape[0], n_days*n_features))
+        # invert scaling for forecast
+        inv_yhat = np.concatenate((prediction, test_X[:, -(n_features-1):]), axis=1)
+        inv_yhat = scaler.inverse_transform(inv_yhat)
+        inv_yhat = inv_yhat[:,0]
+        last_predicted = inv_yhat[-1]
+        prediction_list.append(last_predicted)
         i += 1
-        
-prediction_list
+
+
+pred_list = pd.DataFrame([prediction_list])
+pred_list = pred_list.transpose()
+pred_list
+pred_list.reset_index(level=0, inplace=True)
+pred_list.set_index('index')
+true_values = pd.DataFrame([dataset.iloc[:1159,-1]])
+true_values = true_values.transpose()
+true_values
+
+df = pd.concat([true_values, pred_list], axis=1, sort=False)
+lat_long_only
+result = pd.concat([lat_long_only, df], axis=1, sort=False)
+result
+result = result.drop(['index'], axis=1)
+result.columns = ["lat", "lon", 'true values', 'predicted values']
+#result = result.rename(index=str, columns={result.columns: 'True values', 0 : 'Predicted'})
+print(result)
+
+
+writer = ExcelWriter('predicted.xlsx', engine='xlsxwriter')
+writer.book.use_zip64()
+result.to_excel(writer, sheet_name="Blad1")
+writer.save()
+
+pred_list = pred_list
+
+inv_yhat
+prediction
+prediction_list[0]
 pred_list = []
 summary = list()
 len(prediction_list[0])
+'''
+
+
+
 for j in range(len(prediction_list)):
     for i in range (len(prediction_list[j])):
         pred_list.append(prediction_list[0][i][0])
@@ -167,33 +213,37 @@ def plot_map():
 plot_map()
 '''
 
-
-
+# Calculates accuracy for each last measurement from "prediction.xlsx"
+'''
 df = pd.read_excel('predicted.xlsx', index_col=0)
 df
 df_true, df_pred = df, df
 df_true = df_true.drop('predicted values', axis=1)
 df_pred = df_pred.drop('true values', axis=1)
 
-absolute_values = list()
-counter= 0;
+percentage_values = list()
 for i in range(len(df_pred)): 
     pred, true = df_pred.iloc[i,2], df_true.iloc[i,2]
-    df_pred.iloc[0,2]
-    df_true.iloc[0,2]
-    if pred > true:
-        precentage = (+((pred-true)/true))   
-        counter += 1
+    pred = abs(pred)
+    true = abs(true)
+    if pred > true:        
+        percentage = true / pred
     else:
-        percentage = (+((true-pred)/true))   
-    absolute_values.append(percentage)
-counter
-absolute_values
+        percentage = pred / true
+    percentage_values.append(percentage)
 
-my_list = pd.Series(absolute_values)
+percentage_values
+
+my_list = pd.Series(percentage_values)
 my_list = my_list.replace(-np.inf, 0)
+fig = pyplot.figure(figsize=(10, 5))
+ax = fig.add_subplot(111)
+ax.set_title('Accuracy per point in %')
+pyplot.xticks(np.arange(0, 1, step=0.05))
 my_list.hist()
 pyplot.show()
+'''
+# END
 
 # Plot points on map
 geometry = [Point(xy) for xy in zip(df["lng"], df["lat"])]
@@ -220,7 +270,7 @@ def plot_map():
     ylim = ([57.615, 57.640])
     
     # dot size
-    dot_size = 6
+    dot_size = 2
 
     fig, (ax1, ax2) = pyplot.subplots(1,2, sharey=True, figsize=(15,15))
 
@@ -237,62 +287,15 @@ def plot_map():
 
     print("---- Påbörjar uträkningarna av plottar -----")
     # Points for ax1
-    geo_df_true[(geo_df_true['true values'] >= -0.001) & (geo_df_true['true values'] < 0)].plot(ax = ax1, markersize = dot_size, color = 'maroon', marker = "*", label="-1mm < 0mm", zorder=6)
-    geo_df_true[(geo_df_true['true values'] >= 0) & (geo_df_true['true values'] <= 0.001)].plot(ax = ax1, markersize = dot_size, color = 'gold', marker = "*", label="0mm - 1mm", zorder=6)
+    geo_df_true[(geo_df_true['true values'] > 0.001)].plot(ax = ax1, markersize = dot_size, color = 'blue', marker = "*", label="> 1mm", zorder=6)
+    geo_df_true[(geo_df_true['true values'] >= -0.001) & (geo_df_true['true values'] <= 0.001)].plot(ax = ax1, markersize = dot_size, color = 'forestgreen', marker = "*", label="-1mm - 1mm", zorder=5)
+    geo_df_true[(geo_df_true['true values'] < -0.001)].plot(ax = ax1, markersize = dot_size, color = 'maroon', marker = "*", label="< -1mm", zorder=4)
     # Points for ax2
-    geo_df_pred[(geo_df_pred['predicted values'] >= -0.001) & (geo_df_pred['predicted values'] < 0)].plot(ax = ax2, markersize = dot_size, color = 'maroon', marker = "*", label="-1mm < 0mm", zorder=6)
-    geo_df_pred[(geo_df_pred['predicted values'] >= 0) & (geo_df_pred['predicted values'] <= 0.001)].plot(ax = ax2, markersize = dot_size, color = 'gold', marker = "*", label="0mm - 1mm", zorder=6)
-    '''
-    geo_df_pred[(geo_df_true['true values'] - geo_df_pred['predicted values'] <= -0.001)].plot(
-                    ax = ax2, 
-                    markersize = dot_size, 
-                    color = 'maroon', 
-                    marker = "o", 
-                    label = "Felmarginal på 1.5mm (+)", 
-                    zorder=6)
-    print("---- Påbörjar uträkningarna andra plotten -----")
-   
-    geo_df_pred[(geo_df_true['true values'] - geo_df_pred['predicted values'] > -0.001) & 
-                (geo_df_true['true values'] - geo_df_pred['predicted values'] < -0.0002)].plot(
-                    ax = ax2, 
-                    markersize = dot_size, 
-                    color = 'orangered', 
-                    marker = "o", 
-                    label = "Felmarginal på 0.2-1mm (+)", 
-                    zorder=5)
-    geo_df_pred[(geo_df_true['true values'] - geo_df_pred['predicted values'] >= -0.0001) & 
-                (geo_df_true['true values'] - geo_df_pred['predicted values'] <= 0.0001)].plot(   ax = ax2, 
-                    markersize = dot_size, 
-                    color = 'gold', 
-                    marker = "o", 
-                    label = "Ingen förändring", 
-                    zorder=4)
-    geo_df_pred[(geo_df_true['true values'] - geo_df_pred['predicted values'] > 0.001) & 
-                (geo_df_true['true values'] - geo_df_pred['predicted values'] <= 0.0002)].plot(
-                    ax = ax2, 
-                    markersize = dot_size, 
-                    color = 'forestgreen', 
-                    marker = "o", 
-                    label = "Felmarginal på 0.2-1mm (-)", 
-                    zorder=5)
-    geo_df_pred[(geo_df_true['true values'] - geo_df_pred['predicted values'] > 0.001)].plot(
-                    ax = ax2, 
-                    markersize = dot_size, 
-                    color = 'midnightblue', 
-                    marker = "o", 
-                    label = "Felmarginal under 0.1mm (-)", 
-                    zorder=6)
-    '''
-    #geo_df[(geo_df['predicted values'] > -0.02) & (geo_df['predicted values'] < 0)].plot(ax = ax2, markersize = dot_size, color = 'yellow', marker = "o", label = "Mindre sättning", zorder=4)
-    #geo_df[(geo_df['predicted values'] > -0.09) & (geo_df['predicted values'] <= -0.02)].plot(ax = ax2, markersize = dot_size, color = 'orange', marker = "o", label = "Medel sättning", zorder=5)
-    #geo_df[(geo_df['predicted values'] <= -0.021)].plot(ax = ax2, markersize = dot_size, color = 'red', marker = "^", label = "Högst sättning", zorder=6)
+    geo_df_pred[(geo_df_pred['predicted values'] > 0.001)].plot(ax = ax2, markersize = dot_size, color = 'forestgreen', marker = "*", label="> 1mm", zorder=6)
+    geo_df_pred[(geo_df_pred['predicted values'] >= -0.001) & (geo_df_pred['predicted values'] <= 0.001)].plot(ax = ax2, markersize = dot_size, color = 'gold', marker = "*", label="-1mm - 1mm", zorder=5)
+    geo_df_pred[(geo_df_pred['predicted values'] < -0.001)].plot(ax = ax2, markersize = dot_size, color = 'maroon', marker = "*", label="< -1mm", zorder=4)
 
     pyplot.legend(prop={'size': 12})
     pyplot.show()
 
 plot_map()
-
-
-    
-
-
