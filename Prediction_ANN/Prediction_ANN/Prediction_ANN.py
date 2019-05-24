@@ -240,41 +240,10 @@ def plot_points():
     geo_df_our['geometry'].plot(ax = ax2, markersize = dot_size, color = 'gold', marker = "o", zorder=6)
     pyplot.show()
 
-# Calculates accuracy for each last measurement from "prediction.xlsx"
-def calc_accuracy(): 
-    df = pd.read_excel('predicted.xlsx', index_col=0)
-    df
-    df_true, df_pred = df, df
-    df_true = df_true.drop('predicted values', axis=1)
-    df_pred = df_pred.drop('true values', axis=1)
-
-    percentage_values = list()
-    for i in range(len(df_pred)): 
-        pred, true = df_pred.iloc[i,2], df_true.iloc[i,2]
-        pred = abs(pred)
-        true = abs(true)
-        if pred > true:        
-            percentage = true / pred
-        else:
-            percentage = pred / true
-        percentage_values.append(percentage)
-
-    percentage_values
-
-    my_list = pd.Series(percentage_values)
-    my_list = my_list.replace(-np.inf, 0)
-    fig = pyplot.figure(figsize=(10, 5))
-    ax = fig.add_subplot(111)
-    ax.set_title('Accuracy per point in %')
-    pyplot.xticks(np.arange(0, 1, step=0.05))
-    my_list.hist()
-    pyplot.show()
-    '''
-    # END
-
+   
     # Plot intervals < -1 < 1 <
-    '''
     # Plot points on map
+def plot_points_interval():
     df = pd.read_excel('predicted.xlsx', index_col=0)
     df
     df_true, df_pred = df, df
@@ -541,6 +510,6 @@ if __name__ == "__main__":
     get_predicted_and_true_values()
     create_prediction_file()
     plot_points()
-    calc_accuracy()
+    plot_points_interval()
     plot_ground_level_change()
     plot_difference()
