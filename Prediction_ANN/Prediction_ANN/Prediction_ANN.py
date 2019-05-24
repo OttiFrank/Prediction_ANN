@@ -15,6 +15,29 @@ from pathlib import Path
 from sklearn.metrics import mean_squared_error
 from math import sqrt
 
+def series_to_supervised(values, n_in=1, n_out=1, dropnan=True):
+        n_vars = 1 if type(values) is list else values.shape[1]
+        df = pd.DataFrame(values)
+        cols, names = list(), list()
+        # input sequence (t-n, ... t-1)
+        for i in range(n_in, 0, -1):
+            cols.append(df.shift(i))
+            names += [('var%d(t-%d)' % (j+1, i)) for j in range(n_vars)]
+        # forcast sequence (t, t+1, ... t+n)
+        for i in range(0, n_out):
+            cols.append(df.shift(-i))
+            if i == 0:
+                names += [('var%d(t)' % (j + 1)) for j in range(n_vars)]
+            else:
+                names += [('var%d(t+%d)' % (j+1)) for j in range(n_vars)]
+        # PPut it all together
+        agg = pd.concat(cols, axis = 1)
+        agg.columns = names
+        # drop rows with NaN values
+        if dropnan: 
+            agg.dropna(inplace=True)
+        return agg
+
 # Extract difference between predicted and true values
 def get_difference():
     df = pd.read_excel('predicted.xlsx', index_col=0)
@@ -70,40 +93,14 @@ def create_prediction_file():
 
     dataset.set_index('index', inplace=True)
     dataset = dataset.drop(['Daggp_mean', 'TYtaDaggp_mean'])
-
-
     
     # Ground data
     dataset_GP = dataset.iloc[:1159, :]
-    dataset_GP
     # Weather data
     dataset_W = dataset.iloc[1159:, :]
     # Transpose dataset
     dataset_W = dataset_W.transpose()
     #dataset_GP = dataset_GP.transpose()
-    # Convert series to supervised learning
-    def series_to_supervised(values, n_in=1, n_out=1, dropnan=True):
-        n_vars = 1 if type(values) is list else values.shape[1]
-        df = pd.DataFrame(values)
-        cols, names = list(), list()
-        # input sequence (t-n, ... t-1)
-        for i in range(n_in, 0, -1):
-            cols.append(df.shift(i))
-            names += [('var%d(t-%d)' % (j+1, i)) for j in range(n_vars)]
-        # forcast sequence (t, t+1, ... t+n)
-        for i in range(0, n_out):
-            cols.append(df.shift(-i))
-            if i == 0:
-                names += [('var%d(t)' % (j + 1)) for j in range(n_vars)]
-            else:
-                names += [('var%d(t+%d)' % (j+1)) for j in range(n_vars)]
-        # PPut it all together
-        agg = pd.concat(cols, axis = 1)
-        agg.columns = names
-        # drop rows with NaN values
-        if dropnan: 
-            agg.dropna(inplace=True)
-        return agg
 
     n_days = 1
     n_features = 11
@@ -126,7 +123,6 @@ def create_prediction_file():
     for index  in range(1159):        
             df = dataset_GP.iloc[index, :]
             df = pd.concat([df, dataset_W], axis=1)
-            df
             print('index: {}'.format(index))
             values = df.astype('float64')
             # normalize features
@@ -137,8 +133,6 @@ def create_prediction_file():
             values = reframed.values
             val, val_test = values[:, :n_obs], values[:, -n_features]
             val = val.reshape(val.shape[0], n_days, n_features)
-            # Compile ANN
-            #loaded_model.compile(loss='mse', optimizer='adam')
 
             # Evaluate the model
             scores = loaded_model.predict(val)
@@ -164,142 +158,25 @@ def create_prediction_file():
             i += 1
 
     mean = np.mean(RMSE_list)
-    mean
 
     pred_list = pd.DataFrame([prediction_list])
     pred_list = pred_list.transpose()
-    pred_list
     pred_list.reset_index(level=0, inplace=True)
     pred_list.set_index('index')
     true_values = pd.DataFrame([dataset.iloc[:1159,-1]])
     true_values = true_values.transpose()
-    true_values
 
     df = pd.concat([true_values, pred_list], axis=1, sort=False)
-    lat_long_only
     result = pd.concat([lat_long_only, df], axis=1, sort=False)
-    result
     result = result.drop(['index'], axis=1)
     result.columns = ["lat", "lon", 'true values', 'predicted values']
-    #result = result.rename(index=str, columns={result.columns: 'True values', 0 : 'Predicted'})
-    #writer = ExcelWriter('predicted.xlsx', engine='xlsxwriter')
-    #writer.book.use_zip64()
-    #result.to_excel(writer, sheet_name="Blad1")
-    #writer.save()
+
+    # Writes an Excel file
+    writer = ExcelWriter('predicted.xlsx', engine='xlsxwriter')
+    writer.book.use_zip64()
+    result.to_excel(writer, sheet_name="Blad1")
+    writer.save()
     print(result)    
-
-# Plot our points on a map
-def plot_points():
-    url = "http://users.du.se/~h15marle/GIK258_Examensarbete/Data/railway_data.csv"
-    all_points = pd.read_csv(url)
-    our_points = pd.read_excel('predicted.xlsx', index_col=0)
-    our_points = our_points.iloc[:, 0:2]
-    all_points = all_points.iloc[:, 1:3]
-    all_points
-
-    all_geometry = [Point(xy) for xy in zip(all_points["pnt_lat"], all_points["pnt_lon"])]
-    our_geometry = [Point(xy) for xy in zip(our_points["lat"], our_points["lng"])]
-
-    # concat multible shapefiles into one gpd df
-    folder = Path("shp")
-    print("---- Letar efter och concat av shape-filer ---- ")
-    gdf = pd.concat([
-        gpd.read_file(shp)
-        for shp in folder.glob("*.shp")
-    ], sort=False).pipe(gpd.GeoDataFrame)
-
-    print("--- Startar skapandet av GeoDataFrame -----")
-    geo_df_all = gpd.GeoDataFrame(all_points,
-                              crs= 'merc',
-                              geometry = all_geometry)
-    geo_df_our = gpd.GeoDataFrame(our_points,
-                              crs= 'merc',
-                              geometry = our_geometry)
-
-    # Limit map size
-    xlim = ([12.030, 12.0475])
-    ylim = ([57.615, 57.640])
-    
-    # dot size
-    dot_size = 1
-
-    fig, (ax1, ax2) = pyplot.subplots(1,2, sharey=True, figsize=(15,15))
-
-    ax1.set_xlim(xlim)
-    ax1.set_ylim(ylim)
-    ax2.set_xlim(xlim)
-    ax2.set_ylim(ylim)
-    ax1.set_title('All points', fontsize='xx-large')
-    ax2.set_title('Our points', fontsize='xx-large')
-    print("--- Plottar ut första kartan ----")
-    gdf.plot(ax = ax1, alpha=0.8, zorder=0)
-    print("--- Plottar ut andra kartan ----")
-    gdf.plot(ax = ax2, alpha=0.8, zorder=0)    
-    geo_df_all
-    geo_df_all['geometry'].plot(ax = ax1, markersize = dot_size, color = 'gold', marker = "o", zorder=6)
-    geo_df_our['geometry'].plot(ax = ax2, markersize = dot_size, color = 'gold', marker = "o", zorder=6)
-    pyplot.show()
-
-   
-    # Plot intervals < -1 < 1 <
-    # Plot points on map
-def plot_points_interval():
-    df = pd.read_excel('predicted.xlsx', index_col=0)
-    df
-    df_true, df_pred = df, df
-    df_true = df_true.drop('predicted values', axis=1)
-    df_pred = df_pred.drop('true values', axis=1)
-    geometry = [Point(xy) for xy in zip(df["lon"], df["lat"])]
-
-    # concat multible shapefiles into one gpd df
-    folder = Path("shp")
-    print("---- Letar efter och concat av shape-filer ---- ")
-    gdf = pd.concat([
-        gpd.read_file(shp)
-        for shp in folder.glob("*.shp")
-    ], sort=False).pipe(gpd.GeoDataFrame)
-
-    print("--- Startar skapandet av GeoDataFrame -----")
-    geo_df_true = gpd.GeoDataFrame(df_true,
-                              crs= 'merc',
-                              geometry = geometry)
-    geo_df_pred = gpd.GeoDataFrame(df_pred,
-                              crs= 'merc',
-                              geometry = geometry)
-    print(" ----------------------------------------- ")
-
-    # Limit map size
-    xlim = ([12.030, 12.0475])
-    ylim = ([57.615, 57.640])
-    
-    # dot size
-    dot_size = 2
-
-    fig, (ax1, ax2) = pyplot.subplots(1,2, sharey=True, figsize=(15,15))
-
-    ax1.set_xlim(xlim)
-    ax1.set_ylim(ylim)
-    ax2.set_xlim(xlim)
-    ax2.set_ylim(ylim)
-    ax1.set_title('True values', fontsize='xx-large')
-    ax2.set_title('Predicted values', fontsize='xx-large')
-    print("--- Plottar ut första kartan ----")
-    gdf.plot(ax = ax1, alpha=0.8, zorder=0)
-    print("--- Plottar ut andra kartan ----")
-    gdf.plot(ax = ax2, alpha=0.8, zorder=0)    
-
-    print("---- Påbörjar uträkningarna av plottar -----")
-    # Points for ax1
-    geo_df_true[(geo_df_true['true values'] > 0.001)].plot(ax = ax1, markersize = dot_size, color = 'blue', marker = "*", label="> 1mm", zorder=6)
-    geo_df_true[(geo_df_true['true values'] >= -0.001) & (geo_df_true['true values'] <= 0.001)].plot(ax = ax1, markersize = dot_size, color = 'green', marker = "*", label="-1mm - 1mm", zorder=5)
-    geo_df_true[(geo_df_true['true values'] < -0.001)].plot(ax = ax1, markersize = dot_size, color = 'red', marker = "*", label="< -1mm", zorder=4)
-    # Points for ax2
-    geo_df_pred[(geo_df_pred['predicted values'] > 0.001)].plot(ax = ax2, markersize = dot_size, color = 'blue', marker = "*", label="> 1mm", zorder=6)
-    geo_df_pred[(geo_df_pred['predicted values'] >= -0.001) & (geo_df_pred['predicted values'] <= 0.001)].plot(ax = ax2, markersize = dot_size, color = 'green', marker = "*", label="-1mm - 1mm", zorder=5)
-    geo_df_pred[(geo_df_pred['predicted values'] < -0.001)].plot(ax = ax2, markersize = dot_size, color = 'red', marker = "*", label="< -1mm", zorder=4)
-
-    pyplot.legend(prop={'size': 12})
-    pyplot.show()
 
 # Plot ground level change + rain sum
 def plot_ground_level_change():
@@ -308,7 +185,6 @@ def plot_ground_level_change():
 
     #lat_long_only = dataset[['pnt_lat','pnt_lon']]
     lat_long_only = dataset.iloc[:1159, 2:4]
-    lat_long_only
     dataset = dataset.drop(['pnt_id', 'pnt_lat', 'pnt_lon', 'pnt_demheight', 'pnt_height', 'pnt_quality', 'pnt_linear'], axis=1)
 
     dataset.set_index('index', inplace=True)
@@ -316,36 +192,11 @@ def plot_ground_level_change():
 
     # Ground data
     dataset_GP = dataset.iloc[199, :]
-    dataset_GP
     # Weather data
     dataset_W = dataset.iloc[1159:, :]
-    dataset_W
     # Transpose dataset
     dataset_W = dataset_W.transpose()
     dataset_GP = dataset_GP.transpose()
-    # Convert series to supervised learning
-    def series_to_supervised(values, n_in=1, n_out=1, dropnan=True):
-        n_vars = 1 if type(values) is list else values.shape[1]
-        df = pd.DataFrame(values)
-        cols, names = list(), list()
-        # input sequence (t-n, ... t-1)
-        for i in range(n_in, 0, -1):
-            cols.append(df.shift(i))
-            names += [('var%d(t-%d)' % (j+1, i)) for j in range(n_vars)]
-        # forcast sequence (t, t+1, ... t+n)
-        for i in range(0, n_out):
-            cols.append(df.shift(-i))
-            if i == 0:
-                names += [('var%d(t)' % (j + 1)) for j in range(n_vars)]
-            else:
-                names += [('var%d(t+%d)' % (j+1)) for j in range(n_vars)]
-        # PPut it all together
-        agg = pd.concat(cols, axis = 1)
-        agg.columns = names
-        # drop rows with NaN values
-        if dropnan: 
-            agg.dropna(inplace=True)
-        return agg
 
     n_days = 1
     n_features = 11
@@ -359,14 +210,10 @@ def plot_ground_level_change():
     loaded_model.load_weights("model.h5")
     print("Loaded model from disk")
 
-    # from column 927 (points)
 
-    len(dataset_GP)
     # For one data point      
     df = dataset_GP
-    dataset_W
     df = pd.concat([df, dataset_W], axis=1, sort=False)
-    df
     values = df.astype('float64')
     # normalize features
     scaler = MinMaxScaler(feature_range=(0,1))
@@ -389,27 +236,20 @@ def plot_ground_level_change():
     inv_yhat = np.concatenate((prediction, test_X[:, -(n_features-1):]), axis=1)
     inv_yhat = scaler.inverse_transform(inv_yhat)
     inv_yhat = inv_yhat[:,0]
-    inv_yhat
     #last_predicted = inv_yhat[-1]
     # invert scaling for actual
     test_y = val_test.reshape((len(val_test), 1))
     inv_y = np.concatenate((test_y, test_X[:, -(n_features-1):]), axis=1)
     inv_y = scaler.inverse_transform(inv_y)
     inv_y = inv_y[:,0]
-    inv_y
 
-    len(inv_yhat)
-    inv_yhat
-    inv_y
     # Change to millimeter
     for i in range(len(inv_yhat)):
-        i
         inv_yhat[i] = inv_yhat[i] * 1000
         inv_y[i] = inv_y[i] * 1000
 
     pred_list = pd.DataFrame([inv_yhat, inv_y])
     pred_list = pred_list.transpose()
-    pred_list
     pred_list.reset_index(level=0, inplace=True)
     pred_list = pred_list.set_index('index')
     pred_list.columns = ['predicted values', 'actual values']
@@ -420,10 +260,8 @@ def plot_ground_level_change():
 
     # Reset index to numbers
     dataset_W.reset_index(level=0, inplace=True)
-    dataset_W 
     df = pd.merge(dataset_W, pred_list, left_index=True, right_index=True)
     df = df.set_index('index')
-    df.columns
 
     pyplot.plot(df['predicted values'], color='blue', label='Predikterade värden')
     pyplot.plot(df['actual values'], color='orange', label='Riktiga värden')
@@ -441,7 +279,6 @@ def plot_ground_level_change():
 def plot_difference():
     # Get difference
     df = pd.read_excel('predicted.xlsx', index_col=0)
-    df
     df = df.iloc[:, 2:4]
     cols = df.columns.tolist()
     cols = cols[-1:] + cols[:-1]
@@ -452,20 +289,16 @@ def plot_difference():
         distance_value = abs(df['true values'][i] - df['predicted values'][i])
         difference_list.append(distance_value)
     df.columns = ['true values', 'predicted values']
-    difference_list
     # Extract true and predicted values
     df = pd.read_excel('predicted.xlsx', index_col=0)
     df_true, df_pred = df, df
-    df_true
     df_true = df_true.drop('predicted values', axis=1)
     df_pred = df_pred.drop('true values', axis=1)
     geometry = [Point(xy) for xy in zip(df["lon"], df["lat"])]
     difference_list = pd.DataFrame([difference_list])
     difference_list = difference_list.transpose()
     difference_list.columns = ['difference']
-    df_true
     df_pred = pd.merge(df_pred, difference_list, left_index=True, right_index=True)
-    df_pred
     # concat multible shapefiles into one gpd df
     folder = Path("shp")
     print("---- Letar efter och concat av shape-filer ---- ")
@@ -479,37 +312,33 @@ def plot_difference():
                               crs= 'merc',
                               geometry = geometry)
     print(" ----------------------------------------- ")
-    def plot_map():
-        # Limit map size
-        xlim = ([12.030, 12.0475])
-        ylim = ([57.615, 57.640])
+    # Limit map size
+    xlim = ([12.030, 12.0475])
+    ylim = ([57.615, 57.640])
     
-        # dot size
-        dot_size = 4
+    # dot size
+    dot_size = 4
 
-        fig, ax1 = pyplot.subplots(1, sharey=True, figsize=(15,15))
+    fig, ax1 = pyplot.subplots(1, sharey=True, figsize=(15,15))
 
-        ax1.set_xlim(xlim)
-        ax1.set_ylim(ylim)
-        ax1.set_title('Differens mellan predikterade och riktiga värden', fontsize='xx-large')
-        print("--- Plottar ut kartan ----")
-        gdf.plot(ax = ax1, alpha=0.8, zorder=0)
+    ax1.set_xlim(xlim)
+    ax1.set_ylim(ylim)
+    ax1.set_title('Differens mellan predikterade och riktiga värden', fontsize='xx-large')
+    print("--- Plottar ut kartan ----")
+    gdf.plot(ax = ax1, alpha=0.8, zorder=0)
 
-        print("---- Påbörjar uträkningarna av plott -----")
-        # Points for ax1
-        geo_df_pred[(geo_df_pred['difference'] > 1)].plot(ax = ax1, markersize =8 , color = 'r', marker = "*", label="> 1mm", zorder=6)
-        geo_df_pred[(geo_df_pred['difference'] <= 1)].plot(ax = ax1, markersize = dot_size, color = 'g', marker = "*", label="< 1mm", zorder=5)
+    print("---- Påbörjar uträkningarna av plott -----")
+    # Points for ax1
+    geo_df_pred[(geo_df_pred['difference'] > 1)].plot(ax = ax1, markersize =8 , color = 'r', marker = "*", label="> 1mm", zorder=6)
+    geo_df_pred[(geo_df_pred['difference'] <= 1)].plot(ax = ax1, markersize = dot_size, color = 'g', marker = "*", label="< 1mm", zorder=5)
 
-        pyplot.legend(prop={'size': 12})
-        pyplot.show()
+    pyplot.legend(prop={'size': 12})
+    pyplot.show()
 
-    plot_map()
 
 if __name__ == "__main__":
+    create_prediction_file()
     get_difference()
     get_predicted_and_true_values()
-    create_prediction_file()
-    plot_points()
-    plot_points_interval()
     plot_ground_level_change()
     plot_difference()
